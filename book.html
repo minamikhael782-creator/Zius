@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Zius</title>
+<link rel="icon" href="icon-192.png">
+<meta name="theme-color" content="#000000">
+<style>
+:root{--y:#FFD900;--k:#000}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;font:16px/1.5 "Segoe UI",Tahoma,Arial,sans-serif;background:#f3f2ec;color:#000;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+header{background:var(--k);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:5px solid var(--y)}
+header img{width:46px;height:46px;border-radius:8px}
+header h1{flex:1;margin:0;font-size:18px;font-weight:600}
+select,input,textarea{width:100%;padding:11px;border:1px solid #bbb;border-radius:8px;font:inherit;background:#fff}
+header select{width:auto;background:#222;color:#fff;border-color:#444;padding:7px}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid var(--y);outline-offset:1px}
+main{max-width:520px;margin:auto;padding:16px}
+form,#ok{background:#fff;border-top:5px solid var(--y);border-radius:0 0 12px 12px;padding:16px}
+label{display:block;font-size:14px;color:#555;margin:12px 0 4px}
+#ts{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:8px}
+#ts button{padding:10px 0;border:2px solid #ddd;border-radius:8px;background:#fff;font:inherit;cursor:pointer}
+#ts button.on{background:var(--y);border-color:var(--k);font-weight:700}
+#ts button:disabled{background:#eee;color:#aaa;text-decoration:line-through;cursor:not-allowed}
+.em{color:#777;margin:6px 0}
+.chk{display:flex;gap:10px;align-items:flex-start;margin:14px 0;font-size:14px;color:#333}
+.chk input{width:auto;margin-top:4px}
+.btn{width:100%;background:var(--y);color:#000;border:0;border-radius:8px;padding:13px;font:inherit;font-weight:700;cursor:pointer}
+.btn:disabled{opacity:.5}
+#er{color:#c00;min-height:24px;margin:8px 0 0}
+#ok h2{margin:0 0 8px}
+</style>
+</head>
+<body>
+<header>
+<img src="logo.png" alt="Zius">
+<h1 data-i="title"></h1>
+<select id="lb"><option value="ar">العربية</option><option value="en">English</option><option value="it">Italiano</option><option value="es">Español</option></select>
+</header>
+<main>
+<form id="f">
+<label data-i="svc"></label><select id="sv"></select>
+<label data-i="date"></label><input type="date" id="d" required>
+<label data-i="time"></label>
+<div id="ts"></div><div class="em" id="tm"></div>
+<label data-i="name"></label><input id="n" required maxlength="60" autocomplete="name">
+<label data-i="phone"></label><input id="p" type="tel" required maxlength="25" autocomplete="tel">
+<label data-i="note"></label><input id="o" maxlength="150">
+<label class="chk"><input type="checkbox" id="c" required><span data-i="consent"></span></label>
+<button class="btn" id="b" data-i="go"></button>
+<div id="er" role="alert"></div>
+</form>
+<div id="ok" hidden><h2 data-i="done"></h2><p id="sm"></p><button class="btn" id="again" data-i="again"></button></div>
+</main>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
+import{getFirestore,collection,query,where,getDocs,doc,writeBatch,serverTimestamp}from"https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+const db=getFirestore(initializeApp({apiKey:"AIzaSyBHJuW7y2F-nk_EZePqsP1wET8ItSu-HLY",authDomain:"zius-barbershops-manager.firebaseapp.com",projectId:"zius-barbershops-manager",storageBucket:"zius-barbershops-manager.firebasestorage.app",messagingSenderId:"1033894225665",appId:"1:1033894225665:web:fbd264bbb451e259705d00"}));
+
+/* ساعات العمل: عدّلها هنا / Opening hours: edit here */
+const OPEN=10*60,CLOSE=20*60,STEP=30,CLOSED_DAYS=[0],MAX_DAYS=60; /* 0 = Sunday */
+const SV=['cut','beard','both','blow','facial','pkg','oth'];
+
+const $=s=>document.querySelector(s);
+const T={
+ar:{title:'احجز موعدك',svc:'الخدمة',date:'التاريخ',time:'اختر الوقت',name:'الاسم',phone:'رقم الهاتف',note:'ملاحظات (اختياري)',consent:'أوافق على استخدام اسمي ورقم هاتفي لتنظيم الحجز فقط.',go:'تأكيد الحجز',done:'تم الحجز ✓',again:'حجز آخر',pick:'اختر وقتًا من القائمة',none:'لا توجد أوقات متاحة في هذا اليوم',closed:'المحل مغلق في هذا اليوم',taken:'هذا الموعد حُجز للتو. اختر وقتًا آخر.',err:'تعذّر الحجز. تحقق من الاتصال وحاول مرة أخرى.',cut:'قص شعر',beard:'لحية',both:'قص + لحية',blow:'استشوار',facial:'تنظيف بشرة',pkg:'باكدج كاملة',oth:'أخرى',at:'موعدك'},
+en:{title:'Book your appointment',svc:'Service',date:'Date',time:'Choose a time',name:'Name',phone:'Phone number',note:'Notes (optional)',consent:'I agree to my name and phone number being used only to manage this booking.',go:'Confirm booking',done:'Booking confirmed ✓',again:'Book another',pick:'Choose a time from the list',none:'No free times on this day',closed:'We are closed on this day',taken:'That time was just booked. Please choose another.',err:'Booking failed. Check your connection and try again.',cut:'Haircut',beard:'Beard',both:'Haircut + beard',blow:'Blow-dry',facial:'Facial cleansing',pkg:'Full package',oth:'Other',at:'Your appointment'},
+it:{title:'Prenota il tuo appuntamento',svc:'Servizio',date:'Data',time:'Scegli l’orario',name:'Nome',phone:'Numero di telefono',note:'Note (facoltativo)',consent:'Acconsento all’uso del mio nome e numero di telefono solo per gestire la prenotazione.',go:'Conferma prenotazione',done:'Prenotazione confermata ✓',again:'Nuova prenotazione',pick:'Scegli un orario dall’elenco',none:'Nessun orario libero in questo giorno',closed:'Siamo chiusi in questo giorno',taken:'Questo orario è appena stato prenotato. Scegline un altro.',err:'Prenotazione non riuscita. Controlla la connessione e riprova.',cut:'Taglio',beard:'Barba',both:'Taglio + barba',blow:'Asciugatura (phon)',facial:'Pulizia del viso',pkg:'Pacchetto completo',oth:'Altro',at:'Il tuo appuntamento'},
+es:{title:'Reserva tu cita',svc:'Servicio',date:'Fecha',time:'Elige la hora',name:'Nombre',phone:'Teléfono',note:'Notas (opcional)',consent:'Acepto que mi nombre y teléfono se usen solo para gestionar la reserva.',go:'Confirmar reserva',done:'Reserva confirmada ✓',again:'Otra reserva',pick:'Elige una hora de la lista',none:'No hay horas libres este día',closed:'Estamos cerrados este día',taken:'Esa hora acaba de reservarse. Elige otra.',err:'No se pudo reservar. Revisa tu conexión e inténtalo de nuevo.',cut:'Corte de pelo',beard:'Barba',both:'Corte + barba',blow:'Secado con secador',facial:'Limpieza facial',pkg:'Paquete completo',oth:'Otro',at:'Tu cita'}
+};
+let lang=localStorage.zl||({it:'it',es:'es',en:'en',ar:'ar'}[(navigator.language||'ar').slice(0,2)])||'ar',sel='';
+const t=k=>T[lang][k]||k;
+const today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
+const hhmm=m=>String(m/60|0).padStart(2,'0')+':'+String(m%60).padStart(2,'0');
+
+function applyLang(){
+ document.documentElement.lang=lang;document.documentElement.dir=lang=='ar'?'rtl':'ltr';
+ document.querySelectorAll('[data-i]').forEach(e=>e.textContent=t(e.dataset.i));
+ $('#lb').value=lang;
+ const v=$('#sv').value;$('#sv').innerHTML=SV.map(k=>`<option value="${k}">${t(k)}</option>`).join('');if(v)$('#sv').value=v;
+ slots();
+}
+
+async function slots(){
+ const d=$('#d').value,box=$('#ts');sel='';box.innerHTML='';$('#tm').textContent='';
+ if(!d)return;
+ if(CLOSED_DAYS.includes(new Date(d+'T12:00').getDay())){$('#tm').textContent=t('closed');return}
+ let taken=new Set();
+ try{(await getDocs(query(collection(db,'slots'),where('date','==',d)))).forEach(s=>taken.add(s.data().time))}
+ catch(e){$('#tm').textContent=t('err');return}
+ if($('#d').value!==d)return;
+ const now=new Date(),nm=now.getHours()*60+now.getMinutes();
+ let n=0;
+ for(let m=OPEN;m+STEP<=CLOSE;m+=STEP){
+  if(d==today()&&m<=nm)continue;
+  const b=document.createElement('button');b.type='button';b.textContent=hhmm(m);
+  if(taken.has(b.textContent))b.disabled=true;else n++;
+  box.append(b);
+ }
+ if(!n)$('#tm').textContent=t('none');
+}
+
+$('#ts').onclick=e=>{
+ const b=e.target.closest('button');if(!b||b.disabled)return;
+ document.querySelectorAll('#ts button').forEach(x=>x.classList.toggle('on',x==b));
+ sel=b.textContent;$('#er').textContent='';
+};
+$('#d').min=today();
+$('#d').max=new Date(Date.now()+MAX_DAYS*864e5).toISOString().slice(0,10);
+$('#d').onchange=slots;
+$('#lb').onchange=()=>{lang=$('#lb').value;localStorage.zl=lang;applyLang()};
+
+$('#f').onsubmit=async e=>{
+ e.preventDefault();
+ const d=$('#d').value;
+ if(!sel){$('#er').textContent=t('pick');return}
+ const btn=$('#b');btn.disabled=true;$('#er').textContent='';
+ const rec={cust:$('#n').value.trim(),ph:$('#p').value.trim(),date:d,time:sel,sv:$('#sv').value,note:$('#o').value.trim(),st:'bk',src:'online',at:serverTimestamp()};
+ try{
+  const b=writeBatch(db);
+  b.set(doc(db,'slots',d+'_'+sel),{date:d,time:sel});
+  b.set(doc(collection(db,'bookings')),rec);
+  await b.commit();
+  $('#sm').textContent=t('at')+': '+d+' – '+sel+' · '+t(rec.sv);
+  $('#f').hidden=true;$('#ok').hidden=false;
+ }catch(x){
+  $('#er').textContent=x.code=='permission-denied'?t('taken'):t('err');
+  if(x.code=='permission-denied')slots();
+ }
+ btn.disabled=false;
+};
+$('#again').onclick=()=>{$('#f').reset();$('#ok').hidden=true;$('#f').hidden=false;$('#d').value='';slots()};
+applyLang();
+</script>
+</body>
+</html>
