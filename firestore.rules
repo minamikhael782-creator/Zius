@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSuper() {
+      return request.auth != null
+        && request.auth.token.email == 'minamikhael782@gmail.com';
+    }
+    function isOwner(shop) {
+      return request.auth != null
+        && get(/databases/$(database)/documents/shops/$(shop)).data.owner == request.auth.uid;
+    }
+    function validDate(s) { return s is string && s.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+    function validTime(s) { return s is string && s.matches('^[0-9]{2}:[0-9]{2}$'); }
+
+    match /shops/{shop} {
+      allow get: if true;
+      allow list: if isSuper()
+        || (request.auth != null && resource.data.owner == request.auth.uid);
+      allow create, delete: if isSuper();
+      allow update: if isSuper()
+        || (isOwner(shop)
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['name', 'open', 'close', 'step', 'closed']));
+
+      match /slots/{slotId} {
+        allow read: if true;
+        allow create: if isSuper() || isOwner(shop)
+          || (exists(/databases/$(database)/documents/shops/$(shop))
+              && request.resource.data.keys().hasOnly(['date', 'time'])
+              && validDate(request.resource.data.date)
+              && validTime(request.resource.data.time)
+              && slotId == request.resource.data.date + '_' + request.resource.data.time);
+        allow update, delete: if isSuper() || isOwner(shop);
+      }
+
+      match /bookings/{bookingId} {
+        allow create: if request.resource.data.keys().hasOnly(['cust', 'ph', 'date', 'time', 'sv', 'note', 'st', 'src', 'at'])
+          && request.resource.data.cust is string
+          && request.resource.data.cust.size() > 1 && request.resource.data.cust.size() <= 60
+          && request.resource.data.ph is string
+          && request.resource.data.ph.size() >= 5 && request.resource.data.ph.size() <= 25
+          && request.resource.data.note is string && request.resource.data.note.size() <= 150
+          && request.resource.data.sv in ['cut', 'beard', 'both', 'blow', 'facial', 'pkg', 'oth']
+          && request.resource.data.st == 'bk'
+          && request.resource.data.src == 'online'
+          && request.resource.data.at == request.time
+          && validDate(request.resource.data.date)
+          && validTime(request.resource.data.time)
+          && existsAfter(/databases/$(database)/documents/shops/$(shop)/slots/$(request.resource.data.date + '_' + request.resource.data.time));
+        allow read, update, delete: if isSuper() || isOwner(shop);
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if isSuper();
+    }
+  }
+}

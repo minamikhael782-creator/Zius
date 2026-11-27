@@ -11,11 +11,17 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{margin:0;font:16px/1.5 "Segoe UI",Tahoma,Arial,sans-serif;background:#f3f2ec;color:#000;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
-header{background:var(--k);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:5px solid var(--y)}
-header img{width:46px;height:46px;border-radius:8px}
-header h1{flex:1;margin:0;font-size:18px;font-weight:600}
+header{background:var(--k);color:#fff;text-align:center;padding:26px 16px 20px;border-bottom:5px solid var(--y);position:relative}
+header .logo{width:112px;height:112px;border-radius:22px;box-shadow:0 0 0 3px var(--y),0 10px 24px rgba(0,0,0,.5)}
+.or{display:flex;align-items:center;gap:14px;max-width:240px;margin:16px auto 10px;color:var(--y)}
+.or i{flex:1;height:1px;background:#555}
+.or svg{width:30px;height:30px;flex:none}
+header h1{margin:0;font-size:22px;font-weight:600}
+header select{position:absolute;top:12px;inset-inline-end:12px;width:auto;background:#222;color:#fff;border-color:#444;padding:7px}
+.sn{color:var(--y);margin-top:4px;font-size:15px}
+.ic{display:grid;place-items:center;width:64px;height:64px;border-radius:50%;background:var(--k);color:var(--y);margin-bottom:12px}
+.ic svg{width:34px;height:34px}
 select,input,textarea{width:100%;padding:11px;border:1px solid #bbb;border-radius:8px;font:inherit;background:#fff}
-header select{width:auto;background:#222;color:#fff;border-color:#444;padding:7px}
 input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid var(--y);outline-offset:1px}
 main{max-width:520px;margin:auto;padding:16px}
 form,#ok{background:#fff;border-top:5px solid var(--y);border-radius:0 0 12px 12px;padding:16px}
@@ -35,9 +41,11 @@ label{display:block;font-size:14px;color:#555;margin:12px 0 4px}
 </head>
 <body>
 <header>
-<img src="logo.png" alt="Zius">
-<h1 data-i="title"></h1>
 <select id="lb"><option value="ar">العربية</option><option value="en">English</option><option value="it">Italiano</option><option value="es">Español</option></select>
+<img class="logo" src="logo.png" alt="Zius">
+<div class="or"><i></i><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="16" cy="48" r="9"/><circle cx="48" cy="48" r="9"/><path d="M21 41 48 8M43 41 16 8"/><circle cx="32" cy="27.6" r="1.8" fill="currentColor"/></svg><i></i></div>
+<h1 data-i="title"></h1>
+<div id="sn" class="sn"></div>
 </header>
 <main>
 <form id="f">
@@ -52,24 +60,31 @@ label{display:block;font-size:14px;color:#555;margin:12px 0 4px}
 <button class="btn" id="b" data-i="go"></button>
 <div id="er" role="alert"></div>
 </form>
-<div id="ok" hidden><h2 data-i="done"></h2><p id="sm"></p><button class="btn" id="again" data-i="again"></button></div>
+<p id="bad" class="em" hidden data-i="bad"></p>
+<div id="ok" hidden><div class="ic"><svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="16" cy="48" r="9"/><circle cx="48" cy="48" r="9"/><path d="M21 41 48 8M43 41 16 8"/><circle cx="32" cy="27.6" r="1.8" fill="currentColor"/></svg></div><h2 data-i="done"></h2><p id="sm"></p><button class="btn" id="again" data-i="again"></button></div>
 </main>
 
 <script type="module">
 import{initializeApp}from"https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
-import{getFirestore,collection,query,where,getDocs,doc,writeBatch,serverTimestamp}from"https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+import{getFirestore,collection,query,where,getDocs,getDoc,doc,writeBatch,serverTimestamp}from"https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
 const db=getFirestore(initializeApp({apiKey:"AIzaSyBHJuW7y2F-nk_EZePqsP1wET8ItSu-HLY",authDomain:"zius-barbershops-manager.firebaseapp.com",projectId:"zius-barbershops-manager",storageBucket:"zius-barbershops-manager.firebasestorage.app",messagingSenderId:"1033894225665",appId:"1:1033894225665:web:fbd264bbb451e259705d00"}));
 
 /* ساعات العمل: عدّلها هنا / Opening hours: edit here */
-const OPEN=10*60,CLOSE=20*60,STEP=30,CLOSED_DAYS=[0],MAX_DAYS=60; /* 0 = Sunday */
+const MAX_DAYS=60;let OPEN=600,CLOSE=1200,STEP=30,CLOSED_DAYS=[0];
+const sid=(new URLSearchParams(location.search).get('shop')||'').toLowerCase();
+const hm=x=>{const a=String(x).split(':');return a[0]*60+ +a[1]};
+(async()=>{try{if(!sid)throw 0;const s=await getDoc(doc(db,'shops',sid));if(!s.exists())throw 0;const v=s.data();
+ $('#sn').textContent=v.name||'';document.title=v.name||'Zius';
+ OPEN=hm(v.open||'10:00');CLOSE=hm(v.close||'20:00');STEP=+v.step||30;CLOSED_DAYS=Array.isArray(v.closed)?v.closed:[];
+}catch(e){$('#f').hidden=true;$('#bad').hidden=false}})();
 const SV=['cut','beard','both','blow','facial','pkg','oth'];
 
 const $=s=>document.querySelector(s);
 const T={
-ar:{title:'احجز موعدك',svc:'الخدمة',date:'التاريخ',time:'اختر الوقت',name:'الاسم',phone:'رقم الهاتف',note:'ملاحظات (اختياري)',consent:'أوافق على استخدام اسمي ورقم هاتفي لتنظيم الحجز فقط.',go:'تأكيد الحجز',done:'تم الحجز ✓',again:'حجز آخر',pick:'اختر وقتًا من القائمة',none:'لا توجد أوقات متاحة في هذا اليوم',closed:'المحل مغلق في هذا اليوم',taken:'هذا الموعد حُجز للتو. اختر وقتًا آخر.',err:'تعذّر الحجز. تحقق من الاتصال وحاول مرة أخرى.',cut:'قص شعر',beard:'لحية',both:'قص + لحية',blow:'استشوار',facial:'تنظيف بشرة',pkg:'باكدج كاملة',oth:'أخرى',at:'موعدك'},
-en:{title:'Book your appointment',svc:'Service',date:'Date',time:'Choose a time',name:'Name',phone:'Phone number',note:'Notes (optional)',consent:'I agree to my name and phone number being used only to manage this booking.',go:'Confirm booking',done:'Booking confirmed ✓',again:'Book another',pick:'Choose a time from the list',none:'No free times on this day',closed:'We are closed on this day',taken:'That time was just booked. Please choose another.',err:'Booking failed. Check your connection and try again.',cut:'Haircut',beard:'Beard',both:'Haircut + beard',blow:'Blow-dry',facial:'Facial cleansing',pkg:'Full package',oth:'Other',at:'Your appointment'},
-it:{title:'Prenota il tuo appuntamento',svc:'Servizio',date:'Data',time:'Scegli l’orario',name:'Nome',phone:'Numero di telefono',note:'Note (facoltativo)',consent:'Acconsento all’uso del mio nome e numero di telefono solo per gestire la prenotazione.',go:'Conferma prenotazione',done:'Prenotazione confermata ✓',again:'Nuova prenotazione',pick:'Scegli un orario dall’elenco',none:'Nessun orario libero in questo giorno',closed:'Siamo chiusi in questo giorno',taken:'Questo orario è appena stato prenotato. Scegline un altro.',err:'Prenotazione non riuscita. Controlla la connessione e riprova.',cut:'Taglio',beard:'Barba',both:'Taglio + barba',blow:'Asciugatura (phon)',facial:'Pulizia del viso',pkg:'Pacchetto completo',oth:'Altro',at:'Il tuo appuntamento'},
-es:{title:'Reserva tu cita',svc:'Servicio',date:'Fecha',time:'Elige la hora',name:'Nombre',phone:'Teléfono',note:'Notas (opcional)',consent:'Acepto que mi nombre y teléfono se usen solo para gestionar la reserva.',go:'Confirmar reserva',done:'Reserva confirmada ✓',again:'Otra reserva',pick:'Elige una hora de la lista',none:'No hay horas libres este día',closed:'Estamos cerrados este día',taken:'Esa hora acaba de reservarse. Elige otra.',err:'No se pudo reservar. Revisa tu conexión e inténtalo de nuevo.',cut:'Corte de pelo',beard:'Barba',both:'Corte + barba',blow:'Secado con secador',facial:'Limpieza facial',pkg:'Paquete completo',oth:'Otro',at:'Tu cita'}
+ar:{title:'احجز موعدك',svc:'الخدمة',date:'التاريخ',time:'اختر الوقت',name:'الاسم',phone:'رقم الهاتف',note:'ملاحظات (اختياري)',consent:'أوافق على استخدام اسمي ورقم هاتفي لتنظيم الحجز فقط.',go:'تأكيد الحجز',bad:'رابط الحجز غير صحيح',done:'تم الحجز ✓',again:'حجز آخر',pick:'اختر وقتًا من القائمة',none:'لا توجد أوقات متاحة في هذا اليوم',closed:'المحل مغلق في هذا اليوم',taken:'هذا الموعد حُجز للتو. اختر وقتًا آخر.',err:'تعذّر الحجز. تحقق من الاتصال وحاول مرة أخرى.',cut:'قص شعر',beard:'لحية',both:'قص + لحية',blow:'استشوار',facial:'تنظيف بشرة',pkg:'باكدج كاملة',oth:'أخرى',at:'موعدك'},
+en:{title:'Book your appointment',svc:'Service',date:'Date',time:'Choose a time',name:'Name',phone:'Phone number',note:'Notes (optional)',consent:'I agree to my name and phone number being used only to manage this booking.',go:'Confirm booking',bad:'Invalid booking link',done:'Booking confirmed ✓',again:'Book another',pick:'Choose a time from the list',none:'No free times on this day',closed:'We are closed on this day',taken:'That time was just booked. Please choose another.',err:'Booking failed. Check your connection and try again.',cut:'Haircut',beard:'Beard',both:'Haircut + beard',blow:'Blow-dry',facial:'Facial cleansing',pkg:'Full package',oth:'Other',at:'Your appointment'},
+it:{title:'Prenota il tuo appuntamento',svc:'Servizio',date:'Data',time:'Scegli l’orario',name:'Nome',phone:'Numero di telefono',note:'Note (facoltativo)',consent:'Acconsento all’uso del mio nome e numero di telefono solo per gestire la prenotazione.',go:'Conferma prenotazione',bad:'Link di prenotazione non valido',done:'Prenotazione confermata ✓',again:'Nuova prenotazione',pick:'Scegli un orario dall’elenco',none:'Nessun orario libero in questo giorno',closed:'Siamo chiusi in questo giorno',taken:'Questo orario è appena stato prenotato. Scegline un altro.',err:'Prenotazione non riuscita. Controlla la connessione e riprova.',cut:'Taglio',beard:'Barba',both:'Taglio + barba',blow:'Asciugatura (phon)',facial:'Pulizia del viso',pkg:'Pacchetto completo',oth:'Altro',at:'Il tuo appuntamento'},
+es:{title:'Reserva tu cita',svc:'Servicio',date:'Fecha',time:'Elige la hora',name:'Nombre',phone:'Teléfono',note:'Notas (opcional)',consent:'Acepto que mi nombre y teléfono se usen solo para gestionar la reserva.',go:'Confirmar reserva',bad:'Enlace de reserva no válido',done:'Reserva confirmada ✓',again:'Otra reserva',pick:'Elige una hora de la lista',none:'No hay horas libres este día',closed:'Estamos cerrados este día',taken:'Esa hora acaba de reservarse. Elige otra.',err:'No se pudo reservar. Revisa tu conexión e inténtalo de nuevo.',cut:'Corte de pelo',beard:'Barba',both:'Corte + barba',blow:'Secado con secador',facial:'Limpieza facial',pkg:'Paquete completo',oth:'Otro',at:'Tu cita'}
 };
 let lang=localStorage.zl||({it:'it',es:'es',en:'en',ar:'ar'}[(navigator.language||'ar').slice(0,2)])||'ar',sel='';
 const t=k=>T[lang][k]||k;
@@ -89,7 +104,7 @@ async function slots(){
  if(!d)return;
  if(CLOSED_DAYS.includes(new Date(d+'T12:00').getDay())){$('#tm').textContent=t('closed');return}
  let taken=new Set();
- try{(await getDocs(query(collection(db,'slots'),where('date','==',d)))).forEach(s=>taken.add(s.data().time))}
+ try{(await getDocs(query(collection(db,'shops',sid,'slots'),where('date','==',d)))).forEach(s=>taken.add(s.data().time))}
  catch(e){$('#tm').textContent=t('err');return}
  if($('#d').value!==d)return;
  const now=new Date(),nm=now.getHours()*60+now.getMinutes();
@@ -121,8 +136,8 @@ $('#f').onsubmit=async e=>{
  const rec={cust:$('#n').value.trim(),ph:$('#p').value.trim(),date:d,time:sel,sv:$('#sv').value,note:$('#o').value.trim(),st:'bk',src:'online',at:serverTimestamp()};
  try{
   const b=writeBatch(db);
-  b.set(doc(db,'slots',d+'_'+sel),{date:d,time:sel});
-  b.set(doc(collection(db,'bookings')),rec);
+  b.set(doc(db,'shops',sid,'slots',d+'_'+sel),{date:d,time:sel});
+  b.set(doc(collection(db,'shops',sid,'bookings')),rec);
   await b.commit();
   $('#sm').textContent=t('at')+': '+d+' – '+sel+' · '+t(rec.sv);
   $('#f').hidden=true;$('#ok').hidden=false;

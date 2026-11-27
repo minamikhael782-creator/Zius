@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Zius - إدارة المحلات</title>
+<link rel="icon" href="icon-192.png">
+<style>
+:root{--y:#FFD900;--k:#000}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;font:15px/1.5 "Segoe UI",Tahoma,Arial,sans-serif;background:#f3f2ec;color:#000}
+header{background:var(--k);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:5px solid var(--y)}
+header img{width:46px;height:46px;border-radius:8px}
+header h1{flex:1;margin:0;font-size:17px;font-weight:600}
+main{max-width:760px;margin:auto;padding:16px}
+section{background:#fff;border-top:5px solid var(--y);border-radius:0 0 12px 12px;padding:16px;margin-bottom:16px}
+h3{margin:0 0 10px}
+label{display:block;font-size:13px;color:#555;margin:10px 0 3px}
+input,select{width:100%;padding:10px;border:1px solid #bbb;border-radius:8px;font:inherit;background:#fff}
+input:focus,select:focus,button:focus-visible{outline:3px solid var(--y);outline-offset:1px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:0 12px}
+.btn{background:var(--y);border:0;border-radius:8px;padding:11px 18px;font:inherit;font-weight:700;cursor:pointer;margin-top:14px}
+.btn.s{background:#eee;font-weight:400;padding:6px 10px;margin:0}
+.btn.r{background:#fde2e2;color:#a00;font-weight:400;padding:6px 10px;margin:0}
+.btn:disabled{opacity:.5}
+small{color:#666}
+#m{min-height:24px;font-weight:600;margin-top:10px}
+.bad{color:#c00}.good{color:#0a7a2f}
+.sh{display:flex;gap:10px;align-items:center;justify-content:space-between;border-bottom:1px solid #eee;padding:10px 0;flex-wrap:wrap}
+.sh code{direction:ltr;display:block;font-size:12px;color:#444;user-select:all;word-break:break-all}
+</style>
+</head>
+<body>
+<header><img src="logo.png" alt="Zius"><h1>إدارة المحلات</h1></header>
+<main>
+<section id="lg">
+<h3>دخول المسؤول</h3>
+<form id="lf">
+<label>الإيميل</label><input id="le" type="email" autocomplete="username" required>
+<label>كلمة المرور</label><input id="lp" type="password" autocomplete="current-password" required>
+<button class="btn">دخول</button>
+</form>
+<div id="lm" class="bad"></div>
+</section>
+
+<div id="ap" hidden>
+<section>
+<h3>محل جديد</h3>
+<form id="nf">
+<div class="row">
+<div><label>كود المحل (حروف إنجليزي صغيرة وأرقام وشرطة)</label><input id="id" pattern="[a-z0-9\-]{3,30}" required placeholder="ahmed-barber"></div>
+<div><label>اسم المحل</label><input id="nm" maxlength="60" required></div>
+<div><label>إيميل صاحب المحل</label><input id="oe" type="email" required></div>
+<div><label>كلمة مرور صاحب المحل (8 أحرف أو أكثر)</label><input id="op" type="text" minlength="8" required></div>
+<div><label>بداية العمل</label><input id="op1" type="time" value="10:00" required></div>
+<div><label>نهاية العمل</label><input id="cl" type="time" value="20:00" required></div>
+<div><label>مدة كل موعد (دقيقة)</label><select id="st"><option>15</option><option selected>30</option><option>45</option><option>60</option></select></div>
+<div><label>أيام الإجازة (أرقام، الأحد 0 والسبت 6، مفصولة بفاصلة)</label><input id="cd" value="0" placeholder="0,5"></div>
+</div>
+<button class="btn" id="nb">إنشاء المحل</button>
+</form>
+<div id="m" role="status"></div>
+</section>
+
+<section>
+<h3>المحلات</h3>
+<div id="ls"></div>
+</section>
+</div>
+</main>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
+import{getAuth,signInWithEmailAndPassword,createUserWithEmailAndPassword,onAuthStateChanged,signOut}from"https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
+import{getFirestore,collection,getDocs,getDoc,setDoc,deleteDoc,doc}from"https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+const cfg={apiKey:"AIzaSyBHJuW7y2F-nk_EZePqsP1wET8ItSu-HLY",authDomain:"zius-barbershops-manager.firebaseapp.com",projectId:"zius-barbershops-manager",storageBucket:"zius-barbershops-manager.firebasestorage.app",messagingSenderId:"1033894225665",appId:"1:1033894225665:web:fbd264bbb451e259705d00"};
+const app=initializeApp(cfg),auth=getAuth(app),db=getFirestore(app);
+const $=s=>document.querySelector(s);
+const base=new URL('book.html',location.href).href;
+const msg=(t,ok)=>{$('#m').textContent=t;$('#m').className=ok?'good':'bad'};
+
+$('#lf').onsubmit=async e=>{
+ e.preventDefault();$('#lm').textContent='';
+ try{await signInWithEmailAndPassword(auth,$('#le').value.trim(),$('#lp').value)}
+ catch(x){$('#lm').textContent='الإيميل أو كلمة المرور غير صحيحة'}
+};
+onAuthStateChanged(auth,async u=>{
+ $('#lg').hidden=!!u;$('#ap').hidden=!u;
+ if(u)load();
+});
+
+async function load(){
+ const box=$('#ls');box.textContent='...';
+ try{
+  const s=await getDocs(collection(db,'shops'));
+  if(s.empty){box.textContent='لا توجد محلات بعد';return}
+  box.innerHTML='';
+  s.forEach(d=>{
+   const v=d.data(),r=document.createElement('div');r.className='sh';
+   const i=document.createElement('div');
+   const b=document.createElement('b');b.textContent=v.name||d.id;
+   const c=document.createElement('code');c.textContent=base+'?shop='+d.id;
+   const h=document.createElement('small');h.textContent=(v.open||'')+' - '+(v.close||'')+' / '+(v.step||30)+'m';
+   i.append(b,c,h);
+   const x=document.createElement('button');x.className='btn r';x.textContent='حذف';
+   x.onclick=async()=>{if(!confirm('حذف المحل '+d.id+'؟ (حسابه في Authentication يتمسح يدوي)'))return;await deleteDoc(doc(db,'shops',d.id));load()};
+   r.append(i,x);box.append(r);
+  });
+ }catch(e){box.textContent='تعذّر تحميل المحلات: '+(e.code||e.message)}
+}
+
+$('#nf').onsubmit=async e=>{
+ e.preventDefault();
+ const id=$('#id').value.trim().toLowerCase(),btn=$('#nb');
+ btn.disabled=true;msg('جاري الإنشاء...',true);
+ try{
+  if((await getDoc(doc(db,'shops',id))).exists()){msg('الكود ده مستخدم قبل كده',false);btn.disabled=false;return}
+  const sec=initializeApp(cfg,'sec'+Date.now()),sa=getAuth(sec);
+  const cr=await createUserWithEmailAndPassword(sa,$('#oe').value.trim(),$('#op').value);
+  const uid=cr.user.uid;await signOut(sa);
+  const closed=$('#cd').value.split(',').map(x=>x.trim()).filter(x=>/^[0-6]$/.test(x)).map(Number);
+  await setDoc(doc(db,'shops',id),{name:$('#nm').value.trim(),owner:uid,open:$('#op1').value,close:$('#cl').value,step:+$('#st').value,closed});
+  msg('تم ✓ رابط الحجز: '+base+'?shop='+id,true);
+  $('#nf').reset();load();
+ }catch(x){
+  msg(x.code=='auth/email-already-in-use'?'الإيميل ده مسجل قبل كده':'فشل الإنشاء: '+(x.code||x.message),false);
+ }
+ btn.disabled=false;
+};
+</script>
+</body>
+</html>
